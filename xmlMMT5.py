@@ -83,11 +83,14 @@ def saveFile(fname, table):
     '''
     
     f = open(fname.rsplit('.', 1)[0] + '.txt', "w")
+
+    s = FIELDS[0].rjust(10) + '  ' + FIELDS[1] + '\n'
+    f.write(s.encode('utf-8'))
     
-    for key in sorted(table, key=my_key):  
-        s = str(key)
+    for key in sorted(table, key=my_key):
+        s = key.rjust(10)
+        s += '  '
         for value in table[key]:
-            s += '\t'
             s += table[key].get(value)
         s += '\n'
         f.write(s.encode('utf-8'))
