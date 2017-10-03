@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from glob import glob
 import sys, os, locale, shutil
 import tarfile
+import xlwt
 
 # необходимые файлы в архиве MMT5
 FILES = ('etc/KC/iec101_req.xml', 'etc/KC/iec104_serv.xml')
@@ -59,19 +60,38 @@ def readXML(nodes, fields, table):
 
 
 ##
-def printXML(name):
-    ''' str -> None
+def saveXML(fname, table):
+    ''' (str, str) -> None
 
-        Вывод на экран отсортированного справочника \a name. 
+        Сохранение в '*.xls' файл \a fname данных из таблицы \a table.
+
+        Запись производится по отсортированному словарю.
     '''
     
-    for key in sorted(table, key=my_key):
-        print key,
-        for value in name[key]:
-            print '\t',
-            print name[key].get(value),
-        print
+    # созданим новый файл
+    font0 = xlwt.Font()
+    font0.name = 'Times New Roman'
+    font0.colour_index = 2
+    font0.bold = True
 
+    style0 = xlwt.XFStyle()
+    style0.font = font0
+
+    wr_wb = xlwt.Workbook()
+    ws = wr_wb.add_sheet(u'Адрес')
+    
+    ws.write(0, 0, unicode(FIELDS[0]))
+    ws.write(0, 1, unicode(FIELDS[1]))
+    i = 1
+    for key in sorted(table, key=my_key):
+        ws.write(i, 0, unicode(key))
+        s = ''
+        for value in table[key]:
+            s += table[key].get(value)
+        ws.write(i, 1, unicode(s))
+        i += 1
+    wr_wb.save(unicode(fname.rsplit('.', 1)[0] + '.xls'))
+        
 
 ##
 def saveFile(fname, table):
@@ -158,7 +178,7 @@ def saveTableToFile(fname):
     table = {}
     nodes = getNodesFromXml(f)
     readXML(nodes, FIELDS, table)
-##    printXML(table)
+    saveXML(fname, table)
     saveFile(fname, table)
     f.close()
     return True
