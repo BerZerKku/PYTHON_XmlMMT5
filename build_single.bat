@@ -1,0 +1,1 @@
+pyinstaller --onefile --windowed xmlMMT5_gui.py

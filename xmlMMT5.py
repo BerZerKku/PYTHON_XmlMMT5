@@ -18,6 +18,7 @@ def my_key(dict_key):
         Возвращает значение int полученное из строки.
         Используется для нормальной сортировки числовых массивов.
     '''
+    
     try:
 	return int(dict_key)
     except ValueError:
@@ -101,7 +102,7 @@ def saveFile(fname, table):
 
         Запись производится по отсортированному словарю.
     '''
-    
+
     f = open(fname.rsplit('.', 1)[0] + '.txt', "w")
 
     s = FIELDS[0].rjust(10) + '  ' + FIELDS[1] + '\n'
@@ -125,6 +126,7 @@ def extractMMT5files(fname):
         
         Возвращает False в случае ошибки и True, если все нормально.
     '''
+
     farchive = 'package.tar.gz'
     
     # извлекаем первый архив
@@ -158,7 +160,7 @@ def extractMMT5files(fname):
             print 'ERROR file %s: %s' % (fname, err)
             return False
             
-    os.remove('./package.tar.gz')
+    os.remove(farchive)
     return True
 
 ##
@@ -169,6 +171,7 @@ def saveTableToFile(fname):
         
         Возвращает True в случае удачного сохранения файла. Иначе False.
     '''
+
     try:
         f = open(fname)
     except:
@@ -192,7 +195,7 @@ if __name__ == "__main__":
         sys.exit()
 
     # имя файла+расширение
-    file_name_ext = sys.argv[1]
+    file_name_ext = sys.argv[1] 
 
     # имя файла
     file_name = file_name_ext.rsplit('.', 1)[0]
