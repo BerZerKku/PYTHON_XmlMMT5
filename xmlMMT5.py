@@ -10,19 +10,50 @@ import xlwt
 FILES = ('etc/KC/iec101_req.xml', 'etc/KC/iec104_serv.xml')
 # необходимые поля таблиц
 FIELDS = ('ADDRESS', 'NAME')
+# файл с именами сигналов
+WAREHOUSE = ('etc/KC/warehouse.xml')
 
 ##
 def my_key(dict_key):
-    ''' (str) -> int 
+    ''' (str) -> int
 
         Возвращает значение int полученное из строки.
         Используется для нормальной сортировки числовых массивов.
     '''
-    
+
     try:
-	return int(dict_key)
+        return int(dict_key)
     except ValueError:
-	return dict_key
+        return dict_key
+
+##
+def readWarehouseNames(file_name):
+    ''' str -> list
+
+        Получает список элементов из общего хранилища.
+    '''
+    enames = {}
+
+    try:
+        file = open(file_name)
+
+        parser = etree.XMLParser(encoding='utf-8')
+        page = etree.parse(file, parser)
+
+        # строка для поиска в 'iec104_serv.xml'
+        nodes = page.xpath('/KERNEL/POINTS/POINT')
+
+        for node in nodes:
+            key = node.get("NAME")
+            value = node.get("NAMING")
+            if (not (key is None)) and (not (value is None)):
+                enames[key] = value
+
+    except Exception, e:
+        print "ERROR File %s error: %s." % (file_name, e)
+        return dict()
+
+    return enames
 
 ##
 def getNodesFromXml(file):
@@ -44,20 +75,32 @@ def getNodesFromXml(file):
 
 
 ##
-def readXML(nodes, fields, table):
-    ''' (list, dict, dict) -> None
+def readXML(nodes, wnames, fields):
+    ''' (list, dict, tuple) -> None
 
-        Извлекаются поля согласно fields. Первое поле - ключевое.  
+        nodes - список элементов
+        wnames - словарь эелементов и их названий
+        fields - поля которые надо извлечь
+
+        Извлекаются поля согласно fields. Первое поле - ключевое.
     '''
-    
+
+    table = dict()
+
     for node in nodes:
         key = node.get(fields[0])
 
         values = {}
         for i in range(1, len(fields)):
-            values[fields[i]] = node.get(fields[i])
-        
+            field = fields[i]
+            value = node.get(field)
+            if (field == "NAME") and value.startswith("LOC.") and (value in wnames):
+                value += ' ' + wnames[value]
+            values[field] = value
+
         table.update({key: values})
+
+    return table
 
 
 ##
@@ -68,7 +111,7 @@ def saveXML(fname, table):
 
         Запись производится по отсортированному словарю.
     '''
-    
+
     # созданим новый файл
     font0 = xlwt.Font()
     font0.name = 'Times New Roman'
@@ -80,7 +123,7 @@ def saveXML(fname, table):
 
     wr_wb = xlwt.Workbook()
     ws = wr_wb.add_sheet(u'Адрес')
-    
+
     ws.write(0, 0, unicode(FIELDS[0]))
     ws.write(0, 1, unicode(FIELDS[1]))
     i = 1
@@ -92,7 +135,7 @@ def saveXML(fname, table):
         ws.write(i, 1, unicode(s))
         i += 1
     wr_wb.save(unicode(fname.rsplit('.', 1)[0] + '.xls'))
-        
+
 
 ##
 def saveFile(fname, table):
@@ -107,7 +150,7 @@ def saveFile(fname, table):
 
     s = FIELDS[0].rjust(10) + '  ' + FIELDS[1] + '\n'
     f.write(s.encode('utf-8'))
-    
+
     for key in sorted(table, key=my_key):
         s = key.rjust(10)
         s += '  '
@@ -123,28 +166,45 @@ def extractMMT5files(fname):
     ''' (str, list of str) -> Bool
 
         Извлекает из файла fname нужные файлы.
-        
+
         Возвращает False в случае ошибки и True, если все нормально.
     '''
 
     farchive = 'package.tar.gz'
-    
+
     # извлекаем первый архив
     try:
         tar = tarfile.open(fname, 'r')
         tar.extract(farchive, '.')
         tar.close()
-    except KeyError, err:
-        print 'ERROR file %s: %s' % (fname, err)
+    except Exception, e:
+        print 'ERROR file %s: %s' % (fname, e)
         return False
-    except IOError, err:
-        print 'ERROR file %s: %s' % (fname, err)
-        return False
-    
+
+    wnames = {}
+
+   # извлекаем сигналы из общего хранилища
+    try:
+        tar = tarfile.open(farchive, 'r:gz')
+        tar.extract(WAREHOUSE, '')
+        tar.close()
+        moveto = WAREHOUSE.rsplit('/', 1)[-1]
+        # переносим файл в текущую папку
+        shutil.move('./' + WAREHOUSE, moveto)
+        # удаялем созданную папку
+        shutil.rmtree('./' + WAREHOUSE.rsplit('/')[0], ignore_errors=False, onerror=None)
+        # сохраняем таблицу
+        wnames = readWarehouseNames(moveto)
+        # удаляем файл
+        os.remove(moveto)
+    except Exception, e:
+        print 'ERROR file %s: %s' % (fname, e)
+
+
     # извлекаем нужные файлы
     for f in FILES:
         try:
-            tar = tarfile.open(farchive, 'r:gz')        
+            tar = tarfile.open(farchive, 'r:gz')
             tar.extract(f, '')
             tar.close()
             moveto = f.rsplit('/', 1)[-1]
@@ -153,22 +213,21 @@ def extractMMT5files(fname):
             # удаялем созданную папку
             shutil.rmtree('./' + f.rsplit('/')[0], ignore_errors=False, onerror=None)
             # сохраняем таблицу
-            saveTableToFile(moveto)
-            # удаляем файл
+            saveTableToFile(moveto, wnames)
             os.remove(moveto)
         except KeyError, err:
             print 'ERROR file %s: %s' % (fname, err)
             return False
-            
+
     os.remove(farchive)
     return True
 
 ##
-def saveTableToFile(fname):
-    ''' (str) -> Bool
+def saveTableToFile(fname, wnames={}):
+    ''' (str, dict) -> Bool
 
         Сохраняет необходимые данные в файл '*.txt'.
-        
+
         Возвращает True в случае удачного сохранения файла. Иначе False.
     '''
 
@@ -180,12 +239,12 @@ def saveTableToFile(fname):
 
     table = {}
     nodes = getNodesFromXml(f)
-    readXML(nodes, FIELDS, table)
+    table = readXML(nodes, wnames, FIELDS)
     saveXML(fname, table)
     saveFile(fname, table)
     f.close()
     return True
-          
+
 ##
 if __name__ == "__main__":
 
@@ -195,15 +254,15 @@ if __name__ == "__main__":
         sys.exit()
 
     # имя файла+расширение
-    file_name_ext = sys.argv[1] 
+    file_name_ext = sys.argv[1]
 
     # имя файла
     file_name = file_name_ext.rsplit('.', 1)[0]
-    
-    # расширение файла 
+
+    # расширение файла
     file_ext = file_name_ext.split('.')[-1].lower()
 
-    
+
     if file_ext == 'xml':
         saveTableToFile(file_name_ext)
     elif file_ext == 'tar':
