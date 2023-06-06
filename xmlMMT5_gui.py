@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from Tkinter import *
-import tkFileDialog
-import ttk
+from tkinter import *
+import tkinter.filedialog as tkFileDialog
+import tkinter.ttk as ttk
 from xmlMMT5 import extractMMT5files
 
 # имя файла
@@ -9,7 +9,7 @@ fn = ''
 
 root = Tk()
 
-print 'Run!'
+print ('Run!')
 
 def LoadFile():
     global fn

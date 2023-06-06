@@ -5,6 +5,8 @@ from glob import glob
 import sys, os, locale, shutil
 import tarfile
 import xlwt
+import six
+
 
 # необходимые файлы в архиве MMT5
 FILES = ('etc/KC/iec101_req.xml', 'etc/KC/iec104_serv.xml')
@@ -35,9 +37,9 @@ def readWarehouseNames(file_name):
     enames = {}
 
     try:
-        file = open(file_name)
+        file = open(file_name, encoding='utf-8')
 
-        parser = etree.XMLParser(encoding='utf-8')
+        parser = etree.XMLParser()
         page = etree.parse(file, parser)
 
         # строка для поиска в 'iec104_serv.xml'
@@ -49,8 +51,8 @@ def readWarehouseNames(file_name):
             if (not (key is None)) and (not (value is None)):
                 enames[key] = value
 
-    except Exception, e:
-        print "ERROR File %s error: %s." % (file_name, e)
+    except Exception as e:
+        print ("ERROR File {0} error: {1}.".format(file_name, e))
         return dict()
 
     return enames
@@ -63,7 +65,7 @@ def getNodesFromXml(file):
         списка элементов.
     '''
 
-    parser = etree.XMLParser(encoding='utf-8')
+    parser = etree.XMLParser()
     page = etree.parse(file, parser)
     # строка для поиска в 'iec104_serv.xml'
     nodes = page.xpath('/NODES/MASTERS/MASTER/POINTS/POINT')
@@ -124,17 +126,17 @@ def saveXML(fname, table):
     wr_wb = xlwt.Workbook()
     ws = wr_wb.add_sheet(u'Адрес')
 
-    ws.write(0, 0, unicode(FIELDS[0]))
-    ws.write(0, 1, unicode(FIELDS[1]))
+    ws.write(0, 0, six.text_type(FIELDS[0]))
+    ws.write(0, 1, six.text_type(FIELDS[1]))
     i = 1
     for key in sorted(table, key=my_key):
-        ws.write(i, 0, unicode(key))
+        ws.write(i, 0, six.text_type(key))
         s = ''
         for value in table[key]:
             s += table[key].get(value)
-        ws.write(i, 1, unicode(s))
+        ws.write(i, 1, six.text_type(s))
         i += 1
-    wr_wb.save(unicode(fname.rsplit('.', 1)[0] + '.xls'))
+    wr_wb.save(six.text_type(fname.rsplit('.', 1)[0] + '.xls'))
 
 
 ##
@@ -149,7 +151,7 @@ def saveFile(fname, table):
     f = open(fname.rsplit('.', 1)[0] + '.txt', "w")
 
     s = FIELDS[0].rjust(10) + '  ' + FIELDS[1] + '\n'
-    f.write(s.encode('utf-8'))
+    f.write(s)
 
     for key in sorted(table, key=my_key):
         s = key.rjust(10)
@@ -157,7 +159,7 @@ def saveFile(fname, table):
         for value in table[key]:
             s += table[key].get(value)
         s += '\n'
-        f.write(s.encode('utf-8'))
+        f.write(s)
     f.close()
 
 
@@ -177,8 +179,8 @@ def extractMMT5files(fname):
         tar = tarfile.open(fname, 'r')
         tar.extract(farchive, '.')
         tar.close()
-    except Exception, e:
-        print 'ERROR file %s: %s' % (fname, e)
+    except Exception as e:
+        print ("ERROR File {0} error: {1}.".format(file_name, e))
         return False
 
     wnames = {}
@@ -197,8 +199,8 @@ def extractMMT5files(fname):
         wnames = readWarehouseNames(moveto)
         # удаляем файл
         os.remove(moveto)
-    except Exception, e:
-        print 'ERROR file %s: %s' % (fname, e)
+    except Exception as e:
+        print ("ERROR File {0} error: {1}.".format(fname, e))
 
 
     # извлекаем нужные файлы
@@ -215,8 +217,8 @@ def extractMMT5files(fname):
             # сохраняем таблицу
             saveTableToFile(moveto, wnames)
             os.remove(moveto)
-        except KeyError, err:
-            print 'ERROR file %s: %s' % (fname, err)
+        except Exception as e:
+            print ("ERROR File {0} error: {1}.".format(fname, e))
             return False
 
     os.remove(farchive)
@@ -232,16 +234,18 @@ def saveTableToFile(fname, wnames={}):
     '''
 
     try:
-        f = open(fname)
+        f = open(fname, encoding='utf-8')
     except:
-        print "File %s error." % (fname)
+        print("File %s error." % (fname))
         return False
 
     table = {}
     nodes = getNodesFromXml(f)
     table = readXML(nodes, wnames, FIELDS)
+
     saveXML(fname, table)
     saveFile(fname, table)
+
     f.close()
     return True
 
@@ -250,7 +254,7 @@ if __name__ == "__main__":
 
     # проверка наличия входных данных
     if len(sys.argv) < 2:
-        print "File not found."
+        print("File not found.")
         sys.exit()
 
     # имя файла+расширение
@@ -269,5 +273,5 @@ if __name__ == "__main__":
         if not extractMMT5files(file_name_ext):
             sys.exit()
     else:
-        print 'File Type "*.%s" not supported.' % (file_ext)
+        print('File Type "*.%s" not supported.'%(file_ext))
         sys.exit()
